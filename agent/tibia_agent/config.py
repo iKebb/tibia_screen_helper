@@ -21,6 +21,11 @@ class Settings:
     heal_mana_cost: int = 20
     heal_cooldown: float = 1.0
     runs_dir: str = "runs"
+    # Vision mode
+    calibration_file: str = "calibration.json"
+    heal_key: str = "f1"
+    attack_key: str = "space"
+    fast_tick: float = 0.15
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -39,4 +44,8 @@ class Settings:
             heal_mana_cost=int(env("HEAL_MANA_COST", d.heal_mana_cost)),
             heal_cooldown=float(env("HEAL_COOLDOWN", d.heal_cooldown)),
             runs_dir=env("RUNS_DIR", d.runs_dir),
+            calibration_file=env("CALIBRATION_FILE", d.calibration_file),
+            heal_key=env("HEAL_KEY", d.heal_key),
+            attack_key=env("ATTACK_KEY", d.attack_key),
+            fast_tick=float(env("FAST_TICK", d.fast_tick)),
         )

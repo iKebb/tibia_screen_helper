@@ -101,19 +101,50 @@ class Agent:
         await asyncio.gather(*tasks)
 
 
-def build_planner(name: str, settings: Settings) -> Planner:
+def build_planner(name: str, mode: str, settings: Settings) -> Planner:
+    if mode == "vision":
+        if name == "rules":
+            from .planners.vision_rules import VisionRulePlanner
+            return VisionRulePlanner()
+        from .planners.gemini import GeminiPlanner
+        from .vision.tools import VISION_SYSTEM_PROMPT, VISION_TOOL_SPECS
+        return GeminiPlanner(settings.gemini_api_key, settings.gemini_model,
+                             VISION_TOOL_SPECS, VISION_SYSTEM_PROMPT)
     if name == "rules":
         return RulePlanner()
     from .planners.gemini import GeminiPlanner
     return GeminiPlanner(settings.gemini_api_key, settings.gemini_model)
 
 
+def build_vision_agent(args, settings: Settings, planner: Planner, run_dir: Path, parser):
+    from .vision.agent import VisionAgent
+    from .vision.calibration import Calibration
+    from .vision.capture import ScreenCapture
+    from .vision.inputs import DryRunInput, InputController
+
+    path = Path(settings.calibration_file)
+    if not path.exists():
+        parser.error(f"calibration file {path} not found: run tibia-calibrate first")
+    controller = DryRunInput() if args.dry_run else InputController()
+    truth = GameBridge(settings.bridge_host, settings.bridge_port) if args.ground_truth else None
+    return VisionAgent(settings, planner, Calibration.load(path), ScreenCapture(),
+                       controller, run_dir, ground_truth=truth)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Autonomous agent for Tibia (OpenTibia).")
+    parser.add_argument("--mode", choices=["bridge", "vision"], default="bridge",
+                        help="bridge = reads the game through the OTClient module; "
+                             "vision = reads the screen and uses keyboard/mouse")
     parser.add_argument("--planner", choices=["gemini", "rules"], default="gemini",
                         help="gemini = LLM; rules = simple rules without an API (for testing)")
     parser.add_argument("--mock", action="store_true",
-                        help="also start a mock game (no Tibia needed)")
+                        help="bridge mode: also start a mock game (no Tibia needed)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="vision mode: log keys and clicks instead of sending them")
+    parser.add_argument("--ground-truth", action="store_true",
+                        help="vision mode: also listen for the OTClient module and log the real "
+                             "state next to what vision read")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -129,13 +160,18 @@ def main() -> None:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
     try:
-        planner = build_planner(args.planner, settings)
+        planner = build_planner(args.planner, args.mode, settings)
     except ValueError as e:
         parser.error(str(e))
-    agent = Agent(settings, planner, run_dir)
+    if args.mode == "vision":
+        agent = build_vision_agent(args, settings, planner, run_dir, parser)
+        coro = agent.run()
+    else:
+        agent = Agent(settings, planner, run_dir)
+        coro = agent.run(with_mock=args.mock)
     log.info("Logs for this run in %s", run_dir)
     try:
-        asyncio.run(agent.run(with_mock=args.mock))
+        asyncio.run(coro)
     except KeyboardInterrupt:
         log.info("Stopped by the user")
 

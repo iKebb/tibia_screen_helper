@@ -33,27 +33,33 @@ MAX_CALLS_PER_TURN = 5
 
 
 class GeminiPlanner(Planner):
-    def __init__(self, api_key: str, model: str):
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        tool_specs: list[dict] = TOOL_SPECS,
+        system_prompt: str = SYSTEM_PROMPT,
+    ):
         if not api_key:
             raise ValueError("GEMINI_API_KEY is missing (get one at https://aistudio.google.com/apikey)")
         self.client = genai.Client(api_key=api_key)
         self.model = model
         self.config = types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
+            system_instruction=system_prompt,
             tools=[types.Tool(function_declarations=[
                 types.FunctionDeclaration(
                     name=t["name"],
                     description=t["description"],
                     parameters_json_schema=t["parameters"],
                 )
-                for t in TOOL_SPECS
+                for t in tool_specs
             ])],
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             temperature=0.4,
         )
         self._backoff_until = 0.0
 
-    async def plan(self, goal, state_summary, memory, messages) -> Plan:
+    async def plan(self, goal, state_summary, memory, messages, images=None) -> Plan:
         if time.monotonic() < self._backoff_until:
             return Plan([], "Waiting for the API rate limit.")
 
@@ -65,9 +71,14 @@ class GeminiPlanner(Planner):
             f"MEMORY:\n{memory}\n\n"
             "What do you do now?"
         )
+        contents: str | list = prompt
+        if images:
+            contents = [prompt]
+            for caption, png in images:
+                contents += [f"Image: {caption}", types.Part.from_bytes(data=png, mime_type="image/png")]
         try:
             resp = await self.client.aio.models.generate_content(
-                model=self.model, contents=prompt, config=self.config
+                model=self.model, contents=contents, config=self.config
             )
         except errors.APIError as e:
             # 429 = free tier limit. Wait before trying again.

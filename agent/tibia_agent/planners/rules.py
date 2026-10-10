@@ -16,7 +16,7 @@ class RulePlanner(Planner):
     def __init__(self, seed: int | None = None):
         self.rng = random.Random(seed)
 
-    async def plan(self, goal, state_summary, memory, messages) -> Plan:
+    async def plan(self, goal, state_summary, memory, messages, images=None) -> Plan:
         target = _TARGET_RE.search(state_summary)
         if target and target.group(1) != "none":
             return Plan([ToolCall("wait", {"seconds": 1})], "Still fighting.")

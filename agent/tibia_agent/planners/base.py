@@ -18,5 +18,13 @@ class Plan:
 class Planner:
     """Decides the next actions from the state and the memory."""
 
-    async def plan(self, goal: str, state_summary: str, memory: str, messages: list[str]) -> Plan:
+    async def plan(
+        self,
+        goal: str,
+        state_summary: str,
+        memory: str,
+        messages: list[str],
+        images: list[tuple[str, bytes]] | None = None,
+    ) -> Plan:
+        """images: optional (caption, PNG bytes) pairs, used in vision mode."""
         raise NotImplementedError
