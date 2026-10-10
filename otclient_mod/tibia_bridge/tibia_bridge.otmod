@@ -1,0 +1,11 @@
+Module
+  name: tibia_bridge
+  description: Puente WebSocket entre OTClient y el agente de IA (tibia_agent)
+  author: tibia_screen_helper
+  website: https://github.com/iKebb/tibia_screen_helper
+  autoload: true
+  autoload-priority: 1000
+  sandboxed: true
+  scripts: [ bridge ]
+  @onLoad: init()
+  @onUnload: terminate()

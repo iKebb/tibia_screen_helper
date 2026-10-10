@@ -1,0 +1,14 @@
+# Entorno local
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Repos externos descargados por scripts/setup_external.sh
+external/
+
+# Datos generados por el agente
+runs/

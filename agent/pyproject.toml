@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tibia-agent"
+version = "0.1.0"
+description = "Agente experimental de IA que juega Tibia (OpenTibia) de forma autónoma."
+requires-python = ">=3.10"
+dependencies = [
+    "websockets>=13",
+    "google-genai>=1.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "lupa>=2"]
+
+[project.scripts]
+tibia-agent = "tibia_agent.main:main"
+tibia-mock = "tibia_agent.mock_game:main"
+
+[tool.setuptools.packages.find]
+include = ["tibia_agent*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
