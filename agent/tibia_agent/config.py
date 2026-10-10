@@ -1,4 +1,4 @@
-"""Configuración leída de variables de entorno (y de un .env si existe)."""
+"""Settings read from environment variables (and from a .env file if present)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from dotenv import find_dotenv, load_dotenv
 class Settings:
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
-    goal: str = "Sobrevive en Rookgaard, caza criaturas débiles y sube de nivel."
+    goal: str = "Survive in Rookgaard, hunt weak creatures and level up."
     planner_interval: float = 8.0
     bridge_host: str = "127.0.0.1"
     bridge_port: int = 8765

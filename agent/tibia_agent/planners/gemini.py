@@ -1,4 +1,4 @@
-"""Planificador basado en la API de Gemini con function calling."""
+"""Planner based on the Gemini API with function calling."""
 
 from __future__ import annotations
 
@@ -14,19 +14,19 @@ from .base import Plan, Planner, ToolCall
 log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
-Eres un agente que juega Tibia de forma autónoma en un servidor privado de pruebas.
-Cada pocos segundos recibes el estado del personaje y debes decidir las siguientes
-acciones llamando a las herramientas disponibles (puedes llamar varias en orden).
+You are an agent that plays Tibia autonomously on a private test server.
+Every few seconds you receive the character's state and must decide the next
+actions by calling the available tools (you may call several, in order).
 
-Reglas:
-- Una capa de reflejos ya se encarga de curarte cuando la vida baja y de
-  defenderte de monstruos adyacentes; tú te encargas de la estrategia.
-- Tibia usa coordenadas (x, y, z): x crece hacia el este, y crece hacia el sur,
-  z es el piso (7 = nivel del suelo; números menores = más arriba).
-- No ataques a NPCs ni a otros jugadores.
-- Si la vida está muy baja y hay varios monstruos, aléjate.
-- Usa save_note para recordar cosas útiles (zonas de caza, peligros, NPCs).
-- Antes de las herramientas, escribe en una frase corta qué piensas hacer y por qué.
+Rules:
+- A reflex layer already heals you when health is low and fights back against
+  adjacent monsters; you handle the strategy.
+- Tibia uses (x, y, z) coordinates: x grows to the east, y grows to the south,
+  z is the floor (7 = ground level; lower numbers = higher up).
+- Do not attack NPCs or other players.
+- If health is very low and there are several monsters, move away.
+- Use save_note to remember useful things (hunting spots, dangers, NPCs).
+- Before calling tools, write one short sentence about what you plan to do and why.
 """
 
 MAX_CALLS_PER_TURN = 5
@@ -35,7 +35,7 @@ MAX_CALLS_PER_TURN = 5
 class GeminiPlanner(Planner):
     def __init__(self, api_key: str, model: str):
         if not api_key:
-            raise ValueError("Falta GEMINI_API_KEY (consíguela en https://aistudio.google.com/apikey)")
+            raise ValueError("GEMINI_API_KEY is missing (get one at https://aistudio.google.com/apikey)")
         self.client = genai.Client(api_key=api_key)
         self.model = model
         self.config = types.GenerateContentConfig(
@@ -55,26 +55,26 @@ class GeminiPlanner(Planner):
 
     async def plan(self, goal, state_summary, memory, messages) -> Plan:
         if time.monotonic() < self._backoff_until:
-            return Plan([], "Esperando por límite de la API.")
+            return Plan([], "Waiting for the API rate limit.")
 
-        chat = "\n".join(messages[-15:]) or "(sin mensajes nuevos)"
+        chat = "\n".join(messages[-15:]) or "(no new messages)"
         prompt = (
-            f"OBJETIVO: {goal}\n\n"
-            f"ESTADO ACTUAL:\n{state_summary}\n\n"
-            f"MENSAJES DEL JUEGO:\n{chat}\n\n"
-            f"MEMORIA:\n{memory}\n\n"
-            "¿Qué haces ahora?"
+            f"GOAL: {goal}\n\n"
+            f"CURRENT STATE:\n{state_summary}\n\n"
+            f"GAME MESSAGES:\n{chat}\n\n"
+            f"MEMORY:\n{memory}\n\n"
+            "What do you do now?"
         )
         try:
             resp = await self.client.aio.models.generate_content(
                 model=self.model, contents=prompt, config=self.config
             )
         except errors.APIError as e:
-            # 429 = límite de la capa gratuita. Esperamos antes de reintentar.
+            # 429 = free tier limit. Wait before trying again.
             wait = 60 if e.code == 429 else 10
             self._backoff_until = time.monotonic() + wait
-            log.warning("Error de la API de Gemini (%s): %s. Pausa de %ds.", e.code, e.message, wait)
-            return Plan([], f"Error de API {e.code}")
+            log.warning("Gemini API error (%s): %s. Pausing for %ds.", e.code, e.message, wait)
+            return Plan([], f"API error {e.code}")
 
         calls = [
             ToolCall(fc.name, dict(fc.args or {}))

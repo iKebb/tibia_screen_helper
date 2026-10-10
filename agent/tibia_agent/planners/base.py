@@ -16,7 +16,7 @@ class Plan:
 
 
 class Planner:
-    """Decide las siguientes acciones a partir del estado y la memoria."""
+    """Decides the next actions from the state and the memory."""
 
     async def plan(self, goal: str, state_summary: str, memory: str, messages: list[str]) -> Plan:
         raise NotImplementedError

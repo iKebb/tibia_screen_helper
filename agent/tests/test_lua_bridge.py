@@ -1,7 +1,7 @@
-"""Ejecuta otclient_mod/tibia_bridge/bridge.lua con un OTClient falso (stubs).
+"""Runs otclient_mod/tibia_bridge/bridge.lua against a fake OTClient (stubs).
 
-Comprueba la lógica del módulo (estado y acciones) sin el cliente real.
-Requiere `pip install lupa`; si no está instalado, el test se omite.
+Checks the module logic (state and actions) without the real client.
+Requires `pip install lupa`; the test is skipped if it isn't installed.
 """
 
 from pathlib import Path
@@ -94,7 +94,7 @@ def test_sends_state(lua):
     assert data["online"] and data["level"] == 3 and data["hp"] == 90
     assert dict(data["pos"]) == {"x": 100, "y": 100, "z": 7}
     creatures = list(data["creatures"].values())
-    assert len(creatures) == 1  # el jugador local no se incluye
+    assert len(creatures) == 1  # the local player is not included
     assert creatures[0]["id"] == 42 and creatures[0]["kind"] == "monster"
 
 

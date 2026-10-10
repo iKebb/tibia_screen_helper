@@ -1,13 +1,13 @@
-"""Servidor WebSocket que conecta el agente con el juego.
+"""WebSocket server that connects the agent to the game.
 
-El agente actúa como servidor; el cliente es el módulo Lua de OTClient
-(otclient_mod/tibia_bridge) o el juego simulado (mock_game.py). Ambos hablan
-el mismo protocolo JSON:
+The agent acts as the server; the client is the OTClient Lua module
+(otclient_mod/tibia_bridge) or the mock game (mock_game.py). Both speak
+the same JSON protocol:
 
-  juego -> agente  {"type": "state", "data": {...}}
-                   {"type": "event", "event": "message", "text": "..."}
-                   {"type": "result", "id": 7, "ok": true, "error": null}
-  agente -> juego  {"type": "action", "id": 7, "name": "walk", "args": {...}}
+  game -> agent  {"type": "state", "data": {...}}
+                 {"type": "event", "event": "message", "text": "..."}
+                 {"type": "result", "id": 7, "ok": true, "error": null}
+  agent -> game  {"type": "action", "id": 7, "name": "walk", "args": {...}}
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ class GameBridge:
 
     async def start(self) -> None:
         self._server = await serve(self._handle, self.host, self.port)
-        log.info("Puente escuchando en ws://%s:%d", self.host, self.port)
+        log.info("Bridge listening on ws://%s:%d", self.host, self.port)
 
     async def stop(self) -> None:
         if self._server:
@@ -50,12 +50,12 @@ class GameBridge:
 
     async def _handle(self, conn: ServerConnection) -> None:
         if self._conn is not None:
-            log.warning("Ya hay un cliente conectado; rechazando otro.")
+            log.warning("A client is already connected; rejecting another one.")
             await conn.close(reason="busy")
             return
         self._conn = conn
         self.connected.set()
-        log.info("Cliente de juego conectado")
+        log.info("Game client connected")
         try:
             async for raw in conn:
                 self._on_message(raw)
@@ -67,15 +67,15 @@ class GameBridge:
             self.state = GameState()
             for fut in self._pending.values():
                 if not fut.done():
-                    fut.set_result({"ok": False, "error": "desconectado"})
+                    fut.set_result({"ok": False, "error": "disconnected"})
             self._pending.clear()
-            log.info("Cliente de juego desconectado")
+            log.info("Game client disconnected")
 
     def _on_message(self, raw: str | bytes) -> None:
         try:
             msg = json.loads(raw)
         except json.JSONDecodeError:
-            log.warning("Mensaje no JSON: %r", raw[:200])
+            log.warning("Non-JSON message: %r", raw[:200])
             return
         kind = msg.get("type")
         if kind == "state":
@@ -89,12 +89,12 @@ class GameBridge:
             if fut and not fut.done():
                 fut.set_result({"ok": bool(msg.get("ok")), "error": msg.get("error")})
         else:
-            log.debug("Mensaje desconocido: %s", msg)
+            log.debug("Unknown message: %s", msg)
 
     async def act(self, name: str, args: dict | None = None) -> dict:
-        """Envía una acción al juego y espera su resultado."""
+        """Sends an action to the game and waits for its result."""
         if self._conn is None:
-            return {"ok": False, "error": "juego no conectado"}
+            return {"ok": False, "error": "game not connected"}
         action_id = next(self._ids)
         fut = asyncio.get_running_loop().create_future()
         self._pending[action_id] = fut

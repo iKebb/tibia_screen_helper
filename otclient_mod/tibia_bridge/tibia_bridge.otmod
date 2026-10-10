@@ -1,6 +1,6 @@
 Module
   name: tibia_bridge
-  description: Puente WebSocket entre OTClient y el agente de IA (tibia_agent)
+  description: WebSocket bridge between OTClient and the AI agent (tibia_agent)
   author: tibia_screen_helper
   website: https://github.com/iKebb/tibia_screen_helper
   autoload: true

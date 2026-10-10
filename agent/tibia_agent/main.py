@@ -1,4 +1,4 @@
-"""Punto de entrada: arranca el puente, la capa de reflejos y el planificador."""
+"""Entry point: starts the bridge, the reflex layer and the planner."""
 
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ log = logging.getLogger("tibia_agent")
 
 REFLEX_TICK = 0.2
 MAX_WAIT = 10.0
-# En Tibia un paso tarda ~0,2-0,5 s según la velocidad; el cliente ignora pasos
-# nuevos mientras el anterior no termina.
+# In Tibia a step takes ~0.2-0.5 s depending on speed; the client ignores new
+# steps until the previous one finishes.
 WALK_DELAY = 0.4
 
 
@@ -32,7 +32,7 @@ class Agent:
         self.planner = planner
         self.bridge = GameBridge(settings.bridge_host, settings.bridge_port)
         self.reflexes = Reflexes(settings)
-        # La memoria se comparte entre ejecuciones; los logs van a run_dir.
+        # Memory is shared across runs; logs go to run_dir.
         self.memory = Memory(Path(settings.runs_dir) / "memory.json")
         self.steps_file = run_dir / "steps.jsonl"
 
@@ -48,7 +48,7 @@ class Agent:
             if call.name == "walk":
                 await asyncio.sleep(WALK_DELAY)
             return result
-        return {"ok": False, "error": f"herramienta desconocida: {call.name}"}
+        return {"ok": False, "error": f"unknown tool: {call.name}"}
 
     async def reflex_loop(self) -> None:
         while True:
@@ -70,13 +70,13 @@ class Agent:
                     self.s.goal, state.summary(), self.memory.render(), messages
                 )
                 if plan.thought:
-                    log.info("💭 %s", plan.thought)
+                    log.info("Thought: %s", plan.thought)
                 results = []
                 for call in plan.calls:
                     result = await self.execute(call)
                     status = "ok" if result["ok"] else f"error: {result['error']}"
-                    log.info("→ %s %s (%s)", call.name, call.args, status)
-                    self.memory.log(f"[paso {step}] {call.name}({call.args}) -> {status}")
+                    log.info("-> %s %s (%s)", call.name, call.args, status)
+                    self.memory.log(f"[step {step}] {call.name}({call.args}) -> {status}")
                     results.append({"name": call.name, "args": call.args, **result})
                 self._record(step, state, plan.thought, results, messages)
             elapsed = time.monotonic() - started
@@ -109,11 +109,11 @@ def build_planner(name: str, settings: Settings) -> Planner:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Agente autónomo para Tibia (OpenTibia).")
+    parser = argparse.ArgumentParser(description="Autonomous agent for Tibia (OpenTibia).")
     parser.add_argument("--planner", choices=["gemini", "rules"], default="gemini",
-                        help="gemini = LLM; rules = reglas simples sin API (para pruebas)")
+                        help="gemini = LLM; rules = simple rules without an API (for testing)")
     parser.add_argument("--mock", action="store_true",
-                        help="arranca también un juego simulado (no hace falta Tibia)")
+                        help="also start a mock game (no Tibia needed)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -133,11 +133,11 @@ def main() -> None:
     except ValueError as e:
         parser.error(str(e))
     agent = Agent(settings, planner, run_dir)
-    log.info("Logs de esta ejecución en %s", run_dir)
+    log.info("Logs for this run in %s", run_dir)
     try:
         asyncio.run(agent.run(with_mock=args.mock))
     except KeyboardInterrupt:
-        log.info("Detenido por el usuario")
+        log.info("Stopped by the user")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
-"""Juego simulado muy simple que habla el mismo protocolo que el módulo de OTClient.
+"""Very simple mock game that speaks the same protocol as the OTClient module.
 
-Sirve para probar el agente (reflejos, planificador, Gemini) sin montar el
-servidor ni el cliente de Tibia. Hay un mapa abierto con ratas que se acercan
-y muerden; matar ratas da experiencia y sube de nivel.
+Use it to test the agent (reflexes, planner, Gemini) without setting up the
+Tibia server or client. There is an open map with rats that come closer
+and bite; killing rats gives experience and levels you up.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ class MockGame:
         self.ticks = 0
         self.outbox: list[dict] = []
 
-    # --- simulación -----------------------------------------------------
+    # --- simulation -----------------------------------------------------
     def _inside(self, x: int, y: int) -> bool:
         return ORIGIN[0] <= x < ORIGIN[0] + SIZE and ORIGIN[1] <= y < ORIGIN[1] + SIZE
 
@@ -137,7 +137,7 @@ class MockGame:
             self.x, self.y = ORIGIN[0] + SIZE // 2, ORIGIN[1] + SIZE // 2
             self.exp, self.target, self.dest = 0, None, None
 
-    # --- protocolo ------------------------------------------------------
+    # --- protocol -------------------------------------------------------
     def state(self) -> dict:
         return {
             "online": True,
@@ -158,19 +158,19 @@ class MockGame:
         if name == "walk":
             step = STEP.get(args.get("direction", ""))
             if step is None:
-                return False, "dirección inválida"
+                return False, "invalid direction"
             self.dest = None
-            return (True, None) if self._step_player(*step) else (False, "bloqueado")
+            return (True, None) if self._step_player(*step) else (False, "blocked")
         if name == "go_to":
             x, y, z = int(args["x"]), int(args["y"]), int(args["z"])
             if z != self.z or not self._inside(x, y):
-                return False, "destino inalcanzable"
+                return False, "unreachable destination"
             self.dest = (x, y)
             return True, None
         if name == "attack":
             cid = int(args.get("creature_id", 0))
             if cid not in self.monsters:
-                return False, "criatura no encontrada"
+                return False, "creature not found"
             self.target = cid
             return True, None
         if name == "stop_attack":
@@ -180,12 +180,12 @@ class MockGame:
             text = str(args.get("text", ""))
             if text.lower() == "exura":
                 if self.mana < 20:
-                    return False, "mana insuficiente"
+                    return False, "not enough mana"
                 self.mana -= 20
                 self.hp = min(self.max_hp, self.hp + 30)
             self._say(f"Player: {text}")
             return True, None
-        return False, f"acción desconocida: {name}"
+        return False, f"unknown action: {name}"
 
     async def _send_loop(self, ws: ClientConnection) -> None:
         while True:
@@ -204,21 +204,21 @@ class MockGame:
             try:
                 ok, err = self.handle_action(msg["name"], msg.get("args") or {})
             except (KeyError, TypeError, ValueError) as e:
-                ok, err = False, f"argumentos inválidos: {e}"
+                ok, err = False, f"invalid arguments: {e}"
             await ws.send(json.dumps({"type": "result", "id": msg["id"], "ok": ok, "error": err}))
 
     async def run(self, url: str) -> None:
         while True:
             try:
                 async with connect(url) as ws:
-                    log.info("Mock conectado a %s", url)
+                    log.info("Mock connected to %s", url)
                     await asyncio.gather(self._send_loop(ws), self._recv_loop(ws))
             except (OSError, ConnectionClosed):
                 await asyncio.sleep(1)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Juego simulado para probar el agente.")
+    parser = argparse.ArgumentParser(description="Mock game for testing the agent.")
     parser.add_argument("--url", default="ws://127.0.0.1:8765")
     parser.add_argument("--seed", type=int)
     args = parser.parse_args()

@@ -1,4 +1,4 @@
-"""Modelo del estado del juego tal como lo envía el puente (OTClient o mock)."""
+"""Game state model as sent by the bridge (OTClient or mock)."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ class GameState:
         if not d.get("online"):
             return cls(online=False)
         pos = d.get("pos") or {}
-        # El json.lua de OTClient codifica una tabla vacía como {} en vez de [].
+        # OTClient's json.lua encodes an empty table as {} instead of [].
         raw_creatures = d.get("creatures") or []
         if isinstance(raw_creatures, dict):
             raw_creatures = list(raw_creatures.values())
@@ -72,7 +72,7 @@ class GameState:
         return round(100 * self.hp / self.max_hp)
 
     def distance(self, c: Creature) -> int:
-        """Distancia en tiles (Chebyshev, como en Tibia)."""
+        """Distance in tiles (Chebyshev, as in Tibia)."""
         if c.z != self.z:
             return 99
         return max(abs(c.x - self.x), abs(c.y - self.y))
@@ -84,17 +84,17 @@ class GameState:
         )
 
     def summary(self) -> str:
-        """Descripción compacta del estado para el LLM."""
+        """Compact description of the state for the LLM."""
         if not self.online:
-            return "El personaje no está conectado."
+            return "The character is not logged in."
         lines = [
-            f"Posición: ({self.x}, {self.y}, {self.z})",
+            f"Position: ({self.x}, {self.y}, {self.z})",
             f"HP: {self.hp}/{self.max_hp} ({self.hp_pct}%)  Mana: {self.mana}/{self.max_mana}",
-            f"Nivel: {self.level}  Capacidad libre: {self.cap:g}",
-            f"Objetivo de ataque actual: {self.target_id or 'ninguno'}",
+            f"Level: {self.level}  Free capacity: {self.cap:g}",
+            f"Current attack target: {self.target_id or 'none'}",
         ]
         if self.creatures:
-            lines.append("Criaturas visibles:")
+            lines.append("Visible creatures:")
             for c in sorted(self.creatures, key=self.distance):
                 dx, dy = c.x - self.x, c.y - self.y
                 lines.append(
@@ -102,5 +102,5 @@ class GameState:
                     f"rel=({dx:+d},{dy:+d}) dist={self.distance(c)}"
                 )
         else:
-            lines.append("No hay criaturas visibles.")
+            lines.append("No visible creatures.")
         return "\n".join(lines)

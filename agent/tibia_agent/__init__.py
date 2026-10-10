@@ -1,1 +1,1 @@
-"""Agente experimental que juega Tibia a través de un puente con OTClient."""
+"""Experimental agent that plays Tibia through a bridge with OTClient."""

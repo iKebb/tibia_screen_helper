@@ -107,7 +107,7 @@ Then:
    The agent listens on `ws://127.0.0.1:8765`. Open OTClient and log in with
    the test character; the module connects on its own and retries every 3 s if
    the agent isn't running yet. In the OTClient terminal (`Ctrl+T`) you'll see
-   `[tibia_bridge] conectado a ...`.
+   `[tibia_bridge] connected to ...`.
 
 ## Layout
 

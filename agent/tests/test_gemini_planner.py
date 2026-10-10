@@ -22,16 +22,16 @@ async def test_parses_function_calls(monkeypatch):
     fake = SimpleNamespace(
         function_calls=[SimpleNamespace(name="walk", args={"direction": "north"})],
         candidates=[SimpleNamespace(content=SimpleNamespace(parts=[
-            SimpleNamespace(text="Voy al norte."),
+            SimpleNamespace(text="Heading north."),
             SimpleNamespace(text=None),
         ]))],
     )
 
     async def fake_generate(**kwargs):
-        assert "OBJETIVO: subir" in kwargs["contents"]
+        assert "GOAL: level up" in kwargs["contents"]
         return fake
 
     monkeypatch.setattr(p.client.aio.models, "generate_content", fake_generate)
-    plan = await p.plan("subir", "estado", "memoria", [])
+    plan = await p.plan("level up", "state", "memory", [])
     assert [(c.name, c.args) for c in plan.calls] == [("walk", {"direction": "north"})]
-    assert plan.thought == "Voy al norte."
+    assert plan.thought == "Heading north."

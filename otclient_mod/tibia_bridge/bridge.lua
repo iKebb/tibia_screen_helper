@@ -1,8 +1,8 @@
--- Puente entre OTClient y el agente de IA.
+-- Bridge between OTClient and the AI agent.
 --
--- Se conecta como cliente WebSocket al agente (Python), le envía el estado del
--- juego cada STATE_INTERVAL ms y ejecuta las acciones que recibe. El protocolo
--- está documentado en agent/tibia_agent/bridge.py.
+-- Connects to the agent (Python) as a WebSocket client, sends it the game state
+-- every STATE_INTERVAL ms and runs the actions it receives. The protocol is
+-- documented in agent/tibia_agent/bridge.py.
 
 local BRIDGE_URL = 'ws://127.0.0.1:8765'
 local STATE_INTERVAL = 200
@@ -30,7 +30,7 @@ local function sendEvent(text)
   send({ type = 'event', event = 'message', text = text })
 end
 
--- Estado -----------------------------------------------------------------
+-- State ------------------------------------------------------------------
 
 local function creatureKind(creature)
   if creature:isNpc() then return 'npc' end
@@ -78,32 +78,32 @@ local function sendState()
   if ok then
     send({ type = 'state', data = state })
   else
-    g_logger.warning('[tibia_bridge] error leyendo estado: ' .. tostring(state))
+    g_logger.warning('[tibia_bridge] error reading state: ' .. tostring(state))
   end
 end
 
--- Acciones ---------------------------------------------------------------
+-- Actions ----------------------------------------------------------------
 
 local actions = {}
 
 function actions.walk(args)
   local dir = DIRECTIONS[args.direction or '']
-  if dir == nil then return false, 'direccion invalida' end
+  if dir == nil then return false, 'invalid direction' end
   if g_game.walk(dir) then return true end
-  return false, 'no se pudo caminar'
+  return false, 'could not walk'
 end
 
 function actions.go_to(args)
   local player = g_game.getLocalPlayer()
   local dest = { x = tonumber(args.x), y = tonumber(args.y), z = tonumber(args.z) }
-  if not (dest.x and dest.y and dest.z) then return false, 'coordenadas invalidas' end
+  if not (dest.x and dest.y and dest.z) then return false, 'invalid coordinates' end
   if player:autoWalk(dest) then return true end
-  return false, 'sin camino'
+  return false, 'no path'
 end
 
 function actions.attack(args)
   local creature = g_map.getCreatureById(tonumber(args.creature_id) or 0)
-  if not creature then return false, 'criatura no encontrada' end
+  if not creature then return false, 'creature not found' end
   g_game.attack(creature)
   return true
 end
@@ -114,7 +114,7 @@ function actions.stop_attack(args)
 end
 
 function actions.say(args)
-  if not args.text or args.text == '' then return false, 'texto vacio' end
+  if not args.text or args.text == '' then return false, 'empty text' end
   g_game.talk(args.text)
   return true
 end
@@ -124,9 +124,9 @@ local function handleMessage(message)
   local handler = actions[message.name]
   local ok, err
   if not g_game.isOnline() then
-    ok, err = false, 'no conectado al juego'
+    ok, err = false, 'not logged in to the game'
   elseif not handler then
-    ok, err = false, 'accion desconocida: ' .. tostring(message.name)
+    ok, err = false, 'unknown action: ' .. tostring(message.name)
   else
     local success, result, reason = pcall(handler, message.args or {})
     if success then
@@ -138,7 +138,7 @@ local function handleMessage(message)
   send({ type = 'result', id = message.id, ok = ok and true or false, error = err })
 end
 
--- Eventos del juego ------------------------------------------------------
+-- Game events ------------------------------------------------------------
 
 local function onTextMessage(mode, text)
   sendEvent(text)
@@ -148,7 +148,7 @@ local function onTalk(name, level, mode, text, channelId, creaturePos)
   sendEvent(string.format('%s: %s', tostring(name), tostring(text)))
 end
 
--- Conexion ---------------------------------------------------------------
+-- Connection -------------------------------------------------------------
 
 local connectBridge
 
@@ -169,32 +169,32 @@ end
 
 connectBridge = function()
   if not HTTP or not HTTP.WebSocketJSON then
-    g_logger.error('[tibia_bridge] este OTClient no soporta WebSocket (HTTP.WebSocketJSON)')
+    g_logger.error('[tibia_bridge] this OTClient does not support WebSocket (HTTP.WebSocketJSON)')
     return
   end
   local ok, result = pcall(HTTP.WebSocketJSON, BRIDGE_URL, {
     onOpen = function()
       isOpen = true
-      g_logger.info('[tibia_bridge] conectado a ' .. BRIDGE_URL)
+      g_logger.info('[tibia_bridge] connected to ' .. BRIDGE_URL)
       stateEvent = cycleEvent(sendState, STATE_INTERVAL)
     end,
     onMessage = function(message)
       handleMessage(message)
     end,
     onClose = function()
-      g_logger.info('[tibia_bridge] conexion cerrada, reintentando...')
+      g_logger.info('[tibia_bridge] connection closed, retrying...')
       scheduleReconnect()
     end,
     onError = function(message)
       g_logger.warning('[tibia_bridge] ' .. tostring(message))
-      -- Los errores de JSON no cierran la conexion; solo reintentamos si no hay socket.
+      -- JSON errors don't close the connection; only retry if there is no socket.
       if not isOpen then scheduleReconnect() end
     end,
   })
   if ok then
     socket = result
   else
-    g_logger.error('[tibia_bridge] no se pudo abrir el WebSocket: ' .. tostring(result))
+    g_logger.error('[tibia_bridge] could not open the WebSocket: ' .. tostring(result))
     scheduleReconnect()
   end
 end

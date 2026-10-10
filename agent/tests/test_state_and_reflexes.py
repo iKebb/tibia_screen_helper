@@ -18,7 +18,7 @@ def make_state(hp=100, mana=50, target=None, creatures=()):
 def test_offline_state():
     s = GameState.from_dict({"online": False})
     assert not s.online
-    assert "no está conectado" in s.summary()
+    assert "not logged in" in s.summary()
 
 
 def test_empty_lua_table_is_accepted_as_creature_list():

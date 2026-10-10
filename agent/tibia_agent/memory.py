@@ -1,4 +1,4 @@
-"""Memoria persistente (notas) y registro corto de acciones recientes."""
+"""Persistent memory (notes) and a short log of recent actions."""
 
 from __future__ import annotations
 
@@ -29,6 +29,6 @@ class Memory:
         self.recent.append(line)
 
     def render(self) -> str:
-        notes = "\n".join(f"- {n}" for n in self.notes) or "(sin notas)"
-        recent = "\n".join(self.recent) or "(nada todavía)"
-        return f"Notas guardadas:\n{notes}\n\nAcciones recientes:\n{recent}"
+        notes = "\n".join(f"- {n}" for n in self.notes) or "(no notes)"
+        recent = "\n".join(self.recent) or "(nothing yet)"
+        return f"Saved notes:\n{notes}\n\nRecent actions:\n{recent}"

@@ -1,4 +1,4 @@
-"""Capa de reflejos: reglas rápidas y deterministas que no esperan al LLM."""
+"""Reflex layer: fast, deterministic rules that don't wait for the LLM."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class Reflexes:
             return []
         actions: list[Action] = []
 
-        # Curarse si la vida está baja y hay mana suficiente.
+        # Heal if health is low and there is enough mana.
         if (
             state.hp_pct < self.s.heal_hp_pct
             and state.mana >= self.s.heal_mana_cost
@@ -36,8 +36,8 @@ class Reflexes:
             actions.append(Action("say", {"text": self.s.heal_spell}))
             self._last_heal = now
 
-        # Defensa propia: si no atacamos a nada y un monstruo está pegado, atacarlo.
-        # El cooldown evita repetir la orden antes de que llegue el estado actualizado.
+        # Self-defense: if we aren't attacking anything and a monster is adjacent, attack it.
+        # The cooldown avoids repeating the command before the updated state arrives.
         if state.target_id is None and now - self._last_attack >= ATTACK_COOLDOWN:
             adjacent = [m for m in state.monsters() if state.distance(m) <= 1]
             if adjacent:
