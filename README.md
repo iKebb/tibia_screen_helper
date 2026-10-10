@@ -1,44 +1,45 @@
 # tibia_screen_helper
 
-Experimento: un agente de IA (Gemini) que juega Tibia de forma autónoma en un
-**servidor OpenTibia local**.
+Experiment: an AI agent (Gemini) that plays Tibia autonomously on a **local
+OpenTibia server**.
 
-> ⚠️ No uses esto en los servidores oficiales de CipSoft: los bots están
-> prohibidos y BattlEye banea las cuentas. Este proyecto está pensado para
-> un servidor propio (Canary) en tu PC.
+> **Warning:** do not use this on CipSoft's official servers. Bots are
+> forbidden there and BattlEye bans accounts. This project is meant for your
+> own server (Canary) running on your PC.
 
-## Cómo funciona
+## How it works
 
 ```
 ┌──────────────────┐   WebSocket/JSON   ┌───────────────────────────────┐
-│ OTClient         │ ── estado (5/s) ─► │ tibia_agent (Python)          │
-│ + mods/          │ ◄── acciones ───── │  ├─ bridge.py   (servidor WS) │
-│   tibia_bridge   │                    │  ├─ reflexes.py (cada 0,2 s)  │
+│ OTClient         │ ── state (5/s) ──► │ tibia_agent (Python)          │
+│ + mods/          │ ◄── actions ────── │  ├─ bridge.py   (WS server)   │
+│   tibia_bridge   │                    │  ├─ reflexes.py (every 0.2 s) │
 └────────▲─────────┘                    │  ├─ planners/gemini.py (LLM)  │
-         │                              │  └─ memory.py   (notas)       │
-  Servidor Canary local (Docker)        └───────────────────────────────┘
+         │                              │  └─ memory.py   (notes)       │
+  Local Canary server (Docker)          └───────────────────────────────┘
 ```
 
-- **Puente (`otclient_mod/tibia_bridge`)**: módulo Lua para OTClient. Envía
-  posición, vida, mana, nivel, criaturas visibles y mensajes del juego, y
-  ejecuta acciones (`walk`, `go_to`, `attack`, `stop_attack`, `say`).
-- **Reflejos (`reflexes.py`)**: reglas rápidas que no esperan al LLM: curarse
-  con `exura` cuando la vida baja y defenderse de monstruos pegados.
-- **Planificador (`planners/gemini.py`)**: cada `PLANNER_INTERVAL` segundos
-  le pasa a Gemini el estado, la memoria y el objetivo, y ejecuta las
-  herramientas que elija (function calling).
-- **Memoria (`memory.py`)**: notas persistentes en `runs/memory.json` que el
-  propio agente escribe con la herramienta `save_note`.
-- **Juego simulado (`mock_game.py`)**: un mundo mínimo con ratas que habla el
-  mismo protocolo que OTClient. Sirve para probar el agente sin instalar Tibia.
+- **Bridge (`otclient_mod/tibia_bridge`)**: Lua module for OTClient. It sends
+  position, health, mana, level, visible creatures and game messages, and
+  runs actions (`walk`, `go_to`, `attack`, `stop_attack`, `say`).
+- **Reflexes (`reflexes.py`)**: fast rules that don't wait for the LLM: heal
+  with `exura` when health is low and fight back against adjacent monsters.
+- **Planner (`planners/gemini.py`)**: every `PLANNER_INTERVAL` seconds it
+  sends Gemini the state, the memory and the goal, then runs the tools Gemini
+  picks (function calling).
+- **Memory (`memory.py`)**: persistent notes in `runs/memory.json` that the
+  agent writes itself with the `save_note` tool.
+- **Mock game (`mock_game.py`)**: a minimal world with rats that speaks the
+  same protocol as OTClient. Use it to test the agent without installing
+  Tibia.
 
-Cada ejecución guarda en `runs/<fecha>/` un `agent.log` y un `steps.jsonl`
-(un paso por línea: estado, razonamiento, acciones y resultados) para medir el
-experimento.
+Each run saves an `agent.log` and a `steps.jsonl` in `runs/<date>/` (one step
+per line: state, reasoning, actions and results) so you can measure the
+experiment.
 
-## 1. Prueba rápida sin Tibia (5 minutos)
+## 1. Quick test without Tibia (5 minutes)
 
-Requisitos: Python 3.10+.
+Requirements: Python 3.10+.
 
 ```bash
 cd agent
@@ -46,107 +47,107 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 
-# a) Sin IA: reglas simples contra el juego simulado
+# a) No AI: simple rules against the mock game
 tibia-agent --planner rules --mock
 
-# b) Con Gemini contra el juego simulado
-cp ../.env.example .env          # y pon tu GEMINI_API_KEY
+# b) With Gemini against the mock game
+cp ../.env.example .env          # then set your GEMINI_API_KEY
 tibia-agent --planner gemini --mock
 ```
 
-Clave gratuita de Gemini: <https://aistudio.google.com/apikey>.
+Free Gemini API key: <https://aistudio.google.com/apikey>.
 
-Detén el agente con `Ctrl+C`. Los tests se ejecutan con `pytest` desde `agent/`.
+Stop the agent with `Ctrl+C`. Run the tests with `pytest` from `agent/`.
 
-### Sobre la capa gratuita de Gemini
+### About Gemini's free tier
 
-- Tiene límites de peticiones por minuto y por día que varían según el
-  modelo. Con `PLANNER_INTERVAL=8` el agente hace unas 7–8 peticiones por
-  minuto. Si recibe un error 429 (límite superado), espera 60 s y sigue solo.
-- Si te quedas sin cuota diaria, prueba otro modelo en `GEMINI_MODEL` o sube
-  el intervalo.
-- En la capa gratuita Google puede usar los datos enviados para mejorar sus
-  productos. Aquí solo se envía el estado del juego, pero tenlo en cuenta.
+- It has per-minute and per-day request limits that vary by model. With
+  `PLANNER_INTERVAL=8` the agent makes about 7–8 requests per minute. If it
+  gets a 429 error (limit exceeded), it waits 60 s and carries on by itself.
+- If you run out of daily quota, try another model in `GEMINI_MODEL` or raise
+  the interval.
+- On the free tier, Google may use the data you send to improve its products.
+  Only the game state is sent here, but keep it in mind.
 
-## 2. Jugar en el servidor local
+## 2. Playing on the local server
 
-Requisitos: Docker Desktop (o Docker + Compose v2), Git y unos 10–15 GB libres.
+Requirements: Docker Desktop (or Docker + Compose v2), Git and about 10–15 GB
+of free disk space.
 
 ```bash
 ./scripts/setup_external.sh
 ```
 
-El script descarga en `external/` (ignorado por git):
-- la carpeta `docker/` de [Canary](https://github.com/opentibiabr/canary),
-  que usa una imagen ya compilada del servidor;
-- el código de [OTClient](https://github.com/mehah/otclient), y copia el
-  módulo `tibia_bridge` en `external/otclient/mods/`.
+The script downloads into `external/` (ignored by git):
+- the `docker/` folder of [Canary](https://github.com/opentibiabr/canary),
+  which uses a prebuilt server image;
+- the [OTClient](https://github.com/mehah/otclient) source code, and copies
+  the `tibia_bridge` module into `external/otclient/mods/`.
 
-Después:
+Then:
 
-1. **Servidor**
+1. **Server**
    ```bash
    cd external/canary/docker
    sh ./up.sh            # Windows (PowerShell): .\up.ps1
    ```
-   La primera vez descarga imágenes y el mapa. Cuenta de prueba: `@test1`,
-   contraseña `test`. Detalles en `external/canary/docker/DOCKER.md`.
+   The first run downloads images and the map. Test account: `@test1`,
+   password `test`. Details in `external/canary/docker/DOCKER.md`.
 
-2. **Cliente**: compila OTClient siguiendo su README (o usa un binario de sus
-   [releases](https://github.com/mehah/otclient/releases) si hay uno para tu
-   sistema). OTClient
-   necesita los *assets* (sprites) de la versión del cliente de Tibia que
-   uses; colócalos donde indique su documentación. Si usas un binario en otra
-   carpeta, copia `otclient_mod/tibia_bridge` dentro de su `mods/`.
+2. **Client**: build OTClient following its README (or use a binary from its
+   [releases](https://github.com/mehah/otclient/releases) if there is one for
+   your system). OTClient needs the *assets* (sprites) for the Tibia client
+   version you use; put them where its documentation says. If you use a binary
+   in a different folder, copy `otclient_mod/tibia_bridge` into its `mods/`.
 
-3. **Agente** (en otra terminal, desde `agent/`):
+3. **Agent** (in another terminal, from `agent/`):
    ```bash
    tibia-agent --planner gemini
    ```
-   El agente abre `ws://127.0.0.1:8765`. Abre OTClient, entra con el
-   personaje de prueba, y el módulo se conectará solo; reintenta cada 3 s si
-   el agente aún no está arrancado. En la consola de OTClient (`Ctrl+T`)
-   verás `[tibia_bridge] conectado a ...`.
+   The agent listens on `ws://127.0.0.1:8765`. Open OTClient and log in with
+   the test character; the module connects on its own and retries every 3 s if
+   the agent isn't running yet. In the OTClient terminal (`Ctrl+T`) you'll see
+   `[tibia_bridge] conectado a ...`.
 
-## Estructura
+## Layout
 
 ```
 agent/
   tibia_agent/
-    bridge.py         servidor WebSocket + protocolo
-    state.py          modelo del estado y resumen en texto para el LLM
-    reflexes.py       curación y autodefensa
-    tools.py          catálogo de herramientas para el LLM
-    planners/         gemini.py (LLM) y rules.py (sin IA)
-    memory.py         notas persistentes y log reciente
-    mock_game.py      juego simulado
-    main.py           bucle principal (CLI: tibia-agent)
+    bridge.py         WebSocket server + protocol
+    state.py          state model and text summary for the LLM
+    reflexes.py       healing and self-defense
+    tools.py          tool catalog for the LLM
+    planners/         gemini.py (LLM) and rules.py (no AI)
+    memory.py         persistent notes and recent log
+    mock_game.py      mock game
+    main.py           main loop (CLI: tibia-agent)
   tests/
-otclient_mod/tibia_bridge/   módulo Lua para OTClient
-scripts/setup_external.sh    descarga Canary + OTClient
-.env.example                 configuración
+otclient_mod/tibia_bridge/   Lua module for OTClient
+scripts/setup_external.sh    downloads Canary + OTClient
+.env.example                 configuration
 ```
 
-## Estado del proyecto
+## Project status
 
-| Parte | Estado |
+| Part | Status |
 |---|---|
-| Agente, reflejos y planificador por reglas contra el juego simulado | ✅ probado |
-| Planificador de Gemini | ✅ probado con respuestas simuladas; ⏳ sin probar con la API real |
-| Módulo Lua | ✅ probado con un OTClient falso (stubs); ⏳ sin probar en OTClient real |
-| Script de descarga de Canary + OTClient | ✅ probado |
-| Servidor Canary + OTClient + agente juntos | ⏳ sin probar |
+| Agent, reflexes and rule-based planner against the mock game | Tested |
+| Gemini planner | Tested with mocked responses; not yet tested against the real API |
+| Lua module | Tested against a fake OTClient (stubs); not yet tested in a real OTClient |
+| Canary + OTClient download script | Tested |
+| Canary server + OTClient + agent together | Not tested |
 
-Las llamadas que usa el módulo Lua (`HTTP.WebSocketJSON`, `g_game.walk`,
-`g_map.getSpectators`, `LocalPlayer:autoWalk`…) se han comprobado contra el
-código de `mehah/otclient`. Si algo falla en tu versión, la consola de
-OTClient mostrará el error con el prefijo `[tibia_bridge]`.
+The calls the Lua module relies on (`HTTP.WebSocketJSON`, `g_game.walk`,
+`g_map.getSpectators`, `LocalPlayer:autoWalk`...) were checked against the
+`mehah/otclient` source code. If something fails in your version, the OTClient
+terminal will show the error with the `[tibia_bridge]` prefix.
 
-## Próximos pasos
+## Next steps
 
-- Inventario, contenedores y loot (`use_item`, `open_container`, `loot`).
-- Hablar con NPCs de forma guiada (comprar comida, vender loot).
-- Mapa explorado como memoria (tiles caminables y puntos de interés).
-- Modo visión: capturas de pantalla para comparar con el modo estructurado.
-- Métricas a partir de `steps.jsonl`: nivel por hora, muertes, acciones
-  fallidas y peticiones a la API.
+- Inventory, containers and loot (`use_item`, `open_container`, `loot`).
+- Guided NPC conversations (buying food, selling loot).
+- An explored map as memory (walkable tiles and points of interest).
+- Vision mode: screenshots, to compare against the structured mode.
+- Metrics from `steps.jsonl`: levels per hour, deaths, failed actions and API
+  requests.
